@@ -36,6 +36,15 @@ La primera vez, Postgres crea las tablas y carga los CSVs solo (tarda unos segun
 | `olist` | Los datos del dataset, solo lectura. `geolocation` queda afuera porque el agente no la usa. |
 | `app` | Lo que escribe el agente: `cases`, `actions`, `tool_calls`. |
 
+Hay dos usuarios, con las contraseñas que pongas en `.env`:
+
+| Usuario | Para qué | Permisos |
+|---|---|---|
+| `olist` (`POSTGRES_USER`) | Cargar datos y explorar | Dueño de todo |
+| `agent` (`AGENT_DB_USER`) | El agente | `olist`: solo lectura. `app`: leer, insertar y actualizar; **sin** `DELETE`, `DROP` ni `CREATE` |
+
+El agente se conecta siempre con `agent`: si un bug o el LLM intenta algo raro, la base lo frena.
+
 Para entrar con `psql`:
 
 ```bash
@@ -51,7 +60,7 @@ docker exec -it olist_db psql -U olist -d olist
 ```
 olist_claims_agent/
 ├── data/              # CSVs de Olist (locales, no se versionan)
-├── db/init/           # SQL que Postgres corre al crear la base
+├── db/init/           # SQL y scripts que Postgres corre al crear la base
 ├── notebooks/         # exploración y pruebas
 ├── docker-compose.yml
 └── .env.example
