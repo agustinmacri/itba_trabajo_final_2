@@ -6,6 +6,8 @@ Un agente que lee reseñas negativas de pedidos de e-commerce, verifica lo que d
 
 **Regla de diseño:** el LLM lee e interpreta, el código verifica y pone los límites (política), el humano aprueba lo que cuesta plata.
 
+📄 Propuesta completa (diseño, evaluación y plan de trabajo): [`docs/propuesta.md`](docs/propuesta.md)
+
 ## Dataset
 
 [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce): ~99k pedidos reales (2016-2018) en 9 CSVs vinculados: pedidos, ítems, reseñas, vendedores, clientes, productos, pagos, geolocalización y la traducción de categorías al inglés.
