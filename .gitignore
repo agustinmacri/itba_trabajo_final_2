@@ -1,0 +1,19 @@
+# Datos: cada uno los descarga localmente, no se suben al repo
+data/*
+!data/.gitkeep
+
+# Credenciales
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS / VS Code
+.DS_Store
+.vscode/
