@@ -1,0 +1,4 @@
+# Los scripts y SQL corren dentro de Linux (Docker): siempre con finales de línea LF,
+# aunque alguien clone en Windows.
+*.sh  text eol=lf
+*.sql text eol=lf
