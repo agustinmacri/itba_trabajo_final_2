@@ -26,6 +26,8 @@ No hace falta cuenta de Kaggle para esta descarga.
 
 Requisitos: Docker Desktop abierto y los CSVs ya descargados en `data/`.
 
+📘 Guía paso a paso (Mac y Windows, cómo probarla y qué hacer si algo falla): [`docs/base_de_datos.md`](docs/base_de_datos.md)
+
 ```bash
 cp .env.example .env      # y cambiar la contraseña
 docker compose up -d
