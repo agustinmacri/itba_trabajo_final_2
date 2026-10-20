@@ -7,6 +7,7 @@ def get_order(order_id: str) -> dict | None:
             order_id,
             order_status,
             order_purchase_timestamp,
+            order_delivered_carrier_date,
             order_estimated_delivery_date,
             order_delivered_customer_date
         FROM olist.orders
@@ -25,21 +26,26 @@ def get_order(order_id: str) -> dict | None:
         "order_id": row[0],
         "order_status": row[1],
         "purchase_date": row[2],
-        "estimated_delivery_date": row[3],
-        "delivered_date": row[4],
+        # Cuándo el vendedor se lo entregó al transportista. None si nunca se despachó.
+        "carrier_date": row[3],
+        "estimated_delivery_date": row[4],
+        "delivered_date": row[5],
     }
 
 
 def get_order_items(order_id: str) -> list[dict]:
     query = """
         SELECT
-            order_item_id,
-            product_id,
-            seller_id,
-            price
-        FROM olist.order_items
-        WHERE order_id = %s
-        ORDER BY order_item_id
+            i.order_item_id,
+            i.product_id,
+            i.seller_id,
+            i.price,
+            i.freight_value,
+            p.product_category_name
+        FROM olist.order_items i
+        LEFT JOIN olist.products p ON p.product_id = i.product_id
+        WHERE i.order_id = %s
+        ORDER BY i.order_item_id
     """
 
     with get_connection() as conn:
@@ -55,6 +61,10 @@ def get_order_items(order_id: str) -> list[dict]:
             "product_id": row[1],
             "seller_id": row[2],
             "price": float(row[3]),
+            # Envío que pagó el cliente por este ítem.
+            "freight_value": float(row[4]),
+            # LEFT JOIN: hay productos sin categoría, y así no se pierde el ítem.
+            "category": row[5],
         }
         items.append(item)
 
