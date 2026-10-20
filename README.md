@@ -81,6 +81,21 @@ olist_claims_agent/
 
 **`queries/` no son herramientas del LLM.** Las consultas de lectura las corre el código antes de llamar al LLM y se le pasan como contexto. Las herramientas (*tools*) son las acciones que el LLM elige (`issue_refund`, `flag_seller`, …) e irán en `src/tools/`. Ver `docs/propuesta.md`, sección 3.
 
+### Requisitos de Python
+
+**Python 3.10 o más nuevo** (usamos 3.12; está fijado en `.python-version`). El código usa tipos como `dict | None`, que no existen en versiones anteriores. Ojo en Mac: el `python3` que viene con el sistema suele ser 3.9 y falla al importar con `TypeError: unsupported operand type(s) for |`. Para chequear:
+
+```bash
+python3 --version
+```
+
+Si da 3.9 o menos, instalá una versión nueva (por ejemplo con `brew install python@3.12` o `pyenv install 3.12`) y creá el entorno con ella:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate      # en Windows: .venv\Scripts\activate
+```
+
 ### Tests
 
 Necesitan la base levantada (`docker compose up -d`):

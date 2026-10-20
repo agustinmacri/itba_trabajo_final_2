@@ -40,10 +40,16 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
                    AND o.order_status NOT IN ('canceled', 'unavailable'))
         ),
         reviews AS (
+            -- Una reseña cuenta para el vendedor solo vía pedidos comprados antes de la reseña:
+            -- el dataset vincula algunas reseñas a compras posteriores (otra vez, como en el contexto).
             SELECT
-                BOOL_OR(r.order_id IN (SELECT order_id FROM seller_orders)) AS is_seller,
+                BOOL_OR(
+                    r.order_id IN (SELECT order_id FROM seller_orders)
+                    AND o.order_purchase_timestamp < r.review_creation_date
+                ) AS is_seller,
                 MIN(r.review_score) <= 2 AS is_bad
             FROM olist.order_reviews r
+            JOIN olist.orders o ON o.order_id = r.order_id
             WHERE r.review_creation_date < %(as_of)s
             GROUP BY r.review_id
         ),
@@ -96,7 +102,9 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
             r.review_creation_date
         FROM olist.order_reviews r
         JOIN olist.order_items i ON i.order_id = r.order_id
+        JOIN olist.orders o ON o.order_id = r.order_id
         WHERE i.seller_id = %(seller_id)s
+          AND o.order_purchase_timestamp < r.review_creation_date
           AND r.review_score <= 2
           AND r.review_comment_message IS NOT NULL
           AND r.review_creation_date < %(as_of)s

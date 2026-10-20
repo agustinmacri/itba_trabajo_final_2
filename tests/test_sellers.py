@@ -4,16 +4,26 @@ from datetime import datetime
 from src.queries.sellers import get_seller_history
 
 SELLER_ID = "7d13fca15225358621be4086e1eb0964"
-# Este vendedor tiene 4 reseñas malas antes de esta fecha y 94 después
+# Este vendedor tiene 23 reseñas (4 malas) antes de esta fecha y muchas más después
 AS_OF = datetime(2018, 3, 21)
 
 
 class TestSellers(unittest.TestCase):
     def test_get_seller_history_only_uses_the_past(self):
+        # 23 reseñas antes de AS_OF (contadas aparte en SQL); con una fecha posterior hay más
         history = get_seller_history(SELLER_ID, as_of=AS_OF)
+        later = get_seller_history(SELLER_ID, as_of=datetime(2018, 9, 1))
 
-        bad_reviews = round(history["seller_bad_review_rate"] * history["reviews"])
-        self.assertEqual(bad_reviews, 4)
+        self.assertEqual(history["reviews"], 23)
+        self.assertGreater(later["reviews"], history["reviews"])
+
+    def test_review_linked_to_a_later_order_does_not_count_for_its_seller(self):
+        # La reseña 0857872f (1 estrella, del 18/05) está vinculada solo a un pedido de este
+        # vendedor del 23/06: no puede contar en su contra. Contando aparte en SQL, al 01/06
+        # el vendedor tiene 155 reseñas; con esa reseña mal atribuida serían 156.
+        history = get_seller_history("7040e82f899a04d1b434b795a43b4617", as_of=datetime(2018, 6, 1))
+
+        self.assertEqual(history["reviews"], 155)
 
     def test_overdue_undelivered_orders_count_as_late(self):
         # A as_of: 22 entregados (ninguno tarde) y 7 vencidos sin entregar.
