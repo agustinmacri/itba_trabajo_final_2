@@ -65,9 +65,27 @@ docker exec -it olist_db psql -U olist -d olist
 olist_claims_agent/
 ├── data/              # CSVs de Olist (locales, no se versionan)
 ├── db/init/           # SQL y scripts que Postgres corre al crear la base
+├── docs/              # propuesta y guías
 ├── notebooks/         # exploración y pruebas
+├── src/
+│   ├── database/      # conexión a Postgres (usuario agent)
+│   ├── queries/       # consultas de lectura: las corre el código, no el LLM
+│   ├── context.py     # arma el paquete de contexto de cada caso, a la fecha de la reseña
+│   └── serialization.py  # único punto de conversión a JSON
+├── tests/
 ├── docker-compose.yml
 └── .env.example
+```
+
+**`queries/` no son herramientas del LLM.** Las consultas de lectura las corre el código antes de llamar al LLM y se le pasan como contexto. Las herramientas (*tools*) son las acciones que el LLM elige (`issue_refund`, `flag_seller`, …) e irán en `src/tools/`. Ver `docs/propuesta.md`, sección 3.
+
+### Tests
+
+Necesitan la base levantada (`docker compose up -d`):
+
+```bash
+pip install -r requirements.txt
+python -m unittest discover -s tests -v
 ```
 
 ## Estado

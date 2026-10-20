@@ -1,9 +1,9 @@
 import unittest
 
-from src.tools.review_tools import get_review
+from src.queries.reviews import get_review
 
 
-class TestReviewTools(unittest.TestCase):
+class TestReviews(unittest.TestCase):
     def test_get_review_existing(self):
         review = get_review("00397dc753e8c52a2dd4d73a20b88ae7")
 

@@ -1,14 +1,14 @@
 import unittest
 from datetime import datetime
 
-from src.tools.seller_tools import get_seller_history
+from src.queries.sellers import get_seller_history
 
 SELLER_ID = "7d13fca15225358621be4086e1eb0964"
 # Este vendedor tiene 4 reseñas malas antes de esta fecha y 94 después
 AS_OF = datetime(2018, 3, 21)
 
 
-class TestSellerTools(unittest.TestCase):
+class TestSellers(unittest.TestCase):
     def test_get_seller_history_only_uses_the_past(self):
         history = get_seller_history(SELLER_ID, as_of=AS_OF)
 

@@ -1,6 +1,6 @@
-from src.tools.order_tools import get_order, get_order_items, get_order_payments
-from src.tools.review_tools import get_review
-from src.tools.seller_tools import get_seller_history
+from src.queries.orders import get_order, get_order_items, get_order_payments
+from src.queries.reviews import get_review
+from src.queries.sellers import get_seller_history
 
 
 def get_case_context(review_id: str) -> dict | None:

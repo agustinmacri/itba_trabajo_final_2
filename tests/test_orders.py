@@ -1,10 +1,10 @@
 import unittest
 from datetime import datetime
 
-from src.tools.order_tools import get_order, get_order_items, get_order_payments
+from src.queries.orders import get_order, get_order_items, get_order_payments
 
 
-class TestOrderTools(unittest.TestCase):
+class TestOrders(unittest.TestCase):
     def test_get_order_existing(self):
         order = get_order("548df2c6e5f089574614894bca78acf5")
 
