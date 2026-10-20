@@ -129,7 +129,11 @@ def get_order_payments(order_id: str) -> dict:
         }
         payments.append(payment)
 
+    # Sin pagos registrados, el total es None y no 0: "no sabemos cuánto pagó" no es "pagó 0".
+    # Pasa en un pedido del dataset; también hay pagos reales de R$ 0 (vouchers).
+    total = round(sum(p["value"] for p in payments), 2) if payments else None
+
     return {
-        "total": round(sum(p["value"] for p in payments), 2),
+        "total": total,
         "payments": payments,
     }

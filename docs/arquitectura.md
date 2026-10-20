@@ -106,7 +106,7 @@ print(to_json(get_case_context("00397dc753e8c52a2dd4d73a20b88ae7")))
 1. **`queries/` no son herramientas del LLM.** Las consultas de lectura las corre el código antes de llamar al LLM. Las herramientas (*tools*) son las acciones que elige el LLM y van en `src/tools/`.
 2. **Todo a la fecha de la reseña (`as_of`).** El estado final de un pedido es información del futuro: en el 23% de las reseñas malas con texto, el pedido llegó *después* de que el cliente escribió. Cualquier dato nuevo del contexto que cambie con el tiempo tiene que respetar `as_of`. Detalle en la limitación 9 de la propuesta.
 3. **JSON solo en `to_json`.** Las consultas devuelven tipos de Python (`datetime`, etc.); la conversión a JSON se hace en un único lugar, al final.
-4. **Desconocido no es lo mismo que vacío.** Si falta un dato, se marca (`items_missing`, `orders_missing`) en vez de devolver una lista vacía que el LLM leería como "no compró nada".
+4. **Desconocido no es lo mismo que vacío.** Si falta un dato, se marca (`items_missing`, `orders_missing`, `payments.total = None`) en vez de devolver una lista vacía o un 0 que el LLM leería como "no compró nada" o "no pagó nada".
 5. **Las cuentas las hace SQL.** El LLM recibe tasas y conteos ya calculados, nunca filas para contar.
 6. **Sin muestra suficiente, no hay tasa.** Las tasas del vendedor vuelven `None` si tiene menos de `MIN_SAMPLE_FOR_RATE` (10) reseñas o pedidos vencidos/entregados: con 1 de 1, el LLM leería un 100% como patrón. Los conteos quedan para que se vea por qué. Con 10, el vendedor tiene tasa en ~85% de los casos.
 7. **Estilo SQL:** palabras clave en mayúscula, `CAST(x AS DATE)` (no `::`), con el tipo en mayúscula.

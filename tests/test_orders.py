@@ -68,7 +68,15 @@ class TestOrders(unittest.TestCase):
     def test_get_order_payments_not_found(self):
         payments = get_order_payments("pedido_inexistente")
 
-        self.assertEqual(payments, {"total": 0, "payments": []})
+        self.assertEqual(payments, {"total": None, "payments": []})
+
+    def test_get_order_without_payments_has_unknown_total(self):
+        # Único pedido del dataset sin pagos: tiene una reseña de 1 estrella.
+        # El total tiene que ser None, no 0, para no leerse como "no pagó nada".
+        payments = get_order_payments("bfbd0f9bdef84302105ad712db648a6c")
+
+        self.assertIsNone(payments["total"])
+        self.assertEqual(payments["payments"], [])
 
     def test_get_order_as_of_hides_future_delivery(self):
         # Despachado el 02/03, llegó el 02/04: el 21/03 todavía estaba en camino
