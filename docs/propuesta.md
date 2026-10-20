@@ -449,4 +449,10 @@ Casi nada se tira: el cargador de contexto, el esquema de extracción, la tabla 
 - [ ] Confirmar la licencia del dataset en Kaggle.
 - [ ] Acordar los pesos del error ponderado **antes** de ver resultados.
 - [ ] ¿Quién lee mejor portugués? Esa persona revisa los desacuerdos de etiquetado.
+- [ ] **¿Cuántos datos hacen falta para marcar a un vendedor (`flag_seller`)?** El contexto muestra las tasas del vendedor desde 10 reseñas o pedidos (así llegan al ~85% de los casos), pero con 10 la tasa todavía varía ±11 puntos por azar. Opciones:
+  - **Umbrales distintos (recomendado):** 10 para mostrar la tasa, 20-30 para marcar. Si el LLM intenta marcar con menos, el validador lo rechaza con un error que explica el límite y sugiere mencionar el patrón en el razonamiento o escalar.
+  - **El mismo umbral para los dos:** más simple y consistente, pero se marcarían vendedores con datos ruidosos.
+  - **Una acción intermedia**, como "vigilar al vendedor": no penaliza, solo deja registro. Suma una sexta acción.
+
+  La historia del vendedor no sirve solo para marcarlo: también ayuda a juzgar si el reclamo es creíble y a elegir entre actuar o escalar.
 - [ ] Confirmar la fecha de entrega (¿5/12?).
