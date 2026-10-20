@@ -12,14 +12,24 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
             FROM olist.order_items
             WHERE seller_id = %(seller_id)s
         ),
-        deliveries AS (
-            -- Se compara por día: la fecha estimada viene a las 00:00, así que
-            -- llegar ese mismo día a la tarde cuenta como a tiempo.
+        due_orders AS (
+            -- Pedidos cuyo resultado ya se conocía a as_of: entregados, o con la fecha estimada
+            -- vencida sin entregar. Los que todavía no vencían no cuentan ni a favor ni en contra.
+            -- Los cancelados quedan afuera: no llegar porque se canceló no es un atraso.
             SELECT
                 o.order_id IN (SELECT order_id FROM seller_orders) AS is_seller,
-                CAST(o.order_delivered_customer_date AS DATE) > CAST(o.order_estimated_delivery_date AS DATE) AS is_late
+                o.order_delivered_customer_date < %(as_of)s AS is_delivered,
+                -- Si no había llegado a as_of, se usa as_of: ya está vencido aunque llegue después.
+                -- Se compara por día: la fecha estimada viene a las 00:00, así que
+                -- llegar ese mismo día a la tarde cuenta como a tiempo.
+                CAST(COALESCE(
+                    CASE WHEN o.order_delivered_customer_date < %(as_of)s THEN o.order_delivered_customer_date END,
+                    %(as_of)s
+                ) AS DATE) > CAST(o.order_estimated_delivery_date AS DATE) AS is_late
             FROM olist.orders o
             WHERE o.order_delivered_customer_date < %(as_of)s
+               OR (o.order_estimated_delivery_date < %(as_of)s
+                   AND o.order_status NOT IN ('canceled', 'unavailable'))
         ),
         reviews AS (
             SELECT
@@ -41,10 +51,11 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
         ),
         delivery_stats AS (
             SELECT
-                COUNT(*) FILTER (WHERE is_seller) AS delivered_orders,
+                COUNT(*) FILTER (WHERE is_seller AND is_delivered) AS delivered_orders,
+                COUNT(*) FILTER (WHERE is_seller AND NOT is_delivered) AS overdue_orders,
                 CAST(ROUND(AVG(CAST(is_late AS INT)) FILTER (WHERE is_seller), 3) AS FLOAT) AS seller_late_rate,
                 CAST(ROUND(AVG(CAST(is_late AS INT)), 3) AS FLOAT) AS platform_late_rate
-            FROM deliveries
+            FROM due_orders
         ),
         review_stats AS (
             SELECT
@@ -56,6 +67,7 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
         SELECT
             os.orders,
             ds.delivered_orders,
+            ds.overdue_orders,
             ds.seller_late_rate,
             ds.platform_late_rate,
             rs.reviews,
@@ -104,11 +116,13 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
         "as_of": as_of,
         "orders": stats[0],
         "delivered_orders": stats[1],
-        "seller_late_rate": stats[2],
-        "platform_late_rate": stats[3],
-        "reviews": stats[4],
-        "seller_bad_review_rate": stats[5],
-        "platform_bad_review_rate": stats[6],
+        # Vencidos sin entregar a as_of: cuentan como atrasados.
+        "overdue_orders": stats[2],
+        "seller_late_rate": stats[3],
+        "platform_late_rate": stats[4],
+        "reviews": stats[5],
+        "seller_bad_review_rate": stats[6],
+        "platform_bad_review_rate": stats[7],
         "recent_bad_reviews": [
             {
                 "review_id": row[0],

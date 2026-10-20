@@ -15,6 +15,15 @@ class TestSellers(unittest.TestCase):
         bad_reviews = round(history["seller_bad_review_rate"] * history["reviews"])
         self.assertEqual(bad_reviews, 4)
 
+    def test_overdue_undelivered_orders_count_as_late(self):
+        # A as_of: 22 entregados (ninguno tarde) y 7 vencidos sin entregar.
+        # Antes los 7 no contaban y el vendedor aparecía con 0% de atraso.
+        history = get_seller_history(SELLER_ID, as_of=AS_OF)
+
+        self.assertEqual(history["delivered_orders"], 22)
+        self.assertEqual(history["overdue_orders"], 7)
+        self.assertEqual(history["seller_late_rate"], round(7 / 29, 3))
+
     def test_recent_bad_reviews_are_before_as_of(self):
         history = get_seller_history(SELLER_ID, as_of=AS_OF)
 
