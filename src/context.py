@@ -10,11 +10,13 @@ def get_case_context(review_id: str) -> dict | None:
     if review is None:
         return None
 
+    # Todo el paquete se arma como estaba el día de la reseña: pedidos y vendedores.
+    as_of = review["creation_date"]
     orders = []
     seller_ids = set()
 
     for order_id in review["order_ids"]:
-        order = get_order(order_id)
+        order = get_order(order_id, as_of=as_of)
         if order is None:
             continue
 
@@ -28,11 +30,13 @@ def get_case_context(review_id: str) -> dict | None:
 
     # Pedidos sin ítems no tienen vendedor: la lista queda vacía.
     sellers = [
-        get_seller_history(seller_id, as_of=review["creation_date"])
+        get_seller_history(seller_id, as_of=as_of)
         for seller_id in sorted(seller_ids)
     ]
 
     return {
+        # El "hoy" del caso: el LLM lo necesita para saber, por ejemplo, si un pedido está vencido.
+        "as_of": as_of,
         "review": review,
         "orders": orders,
         "sellers": sellers,

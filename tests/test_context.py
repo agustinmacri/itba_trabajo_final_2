@@ -25,6 +25,26 @@ class TestCaseContext(unittest.TestCase):
 
         self.assertEqual(context["sellers"][0]["as_of"], context["review"]["creation_date"])
 
+    def test_context_does_not_see_the_future(self):
+        # "não recebi o produto", escrita el 21/03: el pedido llegó el 02/04.
+        # El agente tiene que verlo como no entregado, no como "el cliente miente".
+        context = get_case_context("00397dc753e8c52a2dd4d73a20b88ae7")
+        order = context["orders"][0]
+
+        self.assertEqual(context["as_of"], context["review"]["creation_date"])
+        self.assertEqual(order["order_status"], "shipped")
+        self.assertIsNone(order["delivered_date"])
+
+    def test_no_order_date_after_as_of(self):
+        # Pedido despachado después de la reseña: tampoco se ve el despacho
+        context = get_case_context("006aeabb2a1ff6d8074ecb4b56afd4d4")
+
+        for order in context["orders"]:
+            for key in ("purchase_date", "carrier_date", "delivered_date"):
+                if order[key] is not None:
+                    self.assertLess(order[key], context["as_of"])
+        self.assertEqual(context["orders"][0]["order_status"], "processing")
+
     def test_order_never_shipped(self):
         # Pedido cancelado sin despacho, con ítems y vendedor
         context = get_case_context("5abeb6e73481b9ace03a85e343f08e47")

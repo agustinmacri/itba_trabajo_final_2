@@ -34,7 +34,7 @@ La prueba que usamos para elegir: **¿lo podría resolver un `if`?** Si la decis
 - 14.396 reseñas malas (puntaje 1-2); **10.759 (75%) tienen texto**.
 - Solo el **26%** de esas reseñas corresponde a pedidos entregados tarde según las fechas, y otro **15%** a pedidos sin fecha de entrega. En el ~60% restante las fechas no muestran ningún problema: la señal está **solo en el texto**.
 - Temas en las reseñas malas (búsqueda aproximada por palabras clave): no llegó / atraso 34%, faltan ítems 8%, producto equivocado 8%, calidad 8%, roto 5%. **El 43% no coincide con ninguna palabra clave**: un set de reglas se pierde casi la mitad.
-- El texto a veces **contradice los datos**: estado `delivered` pero el cliente escribe *"o produto não chegou"*.
+- El texto a veces **contradice los datos**: estado `delivered` pero el cliente escribe *"o produto não chegou"*. **Ojo:** mirando el estado final hay 2.181 reseñas así, pero en 1.383 (63%) el pedido llegó **después** de que el cliente escribió: en ese momento decía la verdad. Las contradicciones reales (ya había llegado y el cliente dice que no) son 798. Por eso el contexto se arma como estaba el día de la reseña (limitación 9).
 - 634 vendedores tienen 30 pedidos o más, así que buscar patrones por vendedor tiene sentido.
 
 **Limitaciones a tener en cuenta:**
@@ -47,6 +47,7 @@ La prueba que usamos para elegir: **¿lo podría resolver un `if`?** Si la decis
 6. **Las reseñas están en portugués.** El LLM las maneja bien, pero quien etiquete el set de evaluación tiene que leerlas.
 7. **Licencia:** confirmar en la página de Kaggle antes de presentar.
 8. **775 pedidos no tienen ítems, pero sí pago.** Casi todos son `unavailable` (sin stock): 603 de los 609 pedidos `unavailable` no tienen ítems, contra **0 de los 96.478 `delivered`**. Un hueco aleatorio en los datos estaría repartido entre todos los estados, así que hay una lógica atada al estado. No sabemos si los ítems se borraron al quedar sin stock o se perdieron en la exportación (es una inferencia). **Los tratamos como contenido desconocido, no como "no compró nada":** el contexto marca `items_missing` y usa el pago como monto. Sin ítems tampoco hay vendedor, así que en esos casos el agente no puede usar `flag_seller`. Son casos claros de reembolso: *"Comprei um perfume Bleu de Chanel, paguei e não recebi"* (R$ 615,53).
+9. **El estado de un pedido es el final, no el del día de la reseña.** En el 23% de las reseñas malas con texto, el pedido llegó **después** de que el cliente escribió. Mostrarle al agente el estado final es mostrarle el futuro: vería "entregado" y concluiría que el cliente miente. Por eso todo el contexto se arma **a la fecha de la reseña** (`as_of`): las fechas posteriores no se muestran y el estado se reconstruye con las fechas conocidas (`processing` / `shipped` / `delivered`). Dos límites: `review_creation_date` no tiene hora, así que lo que pasó el mismo día de la reseña queda oculto (3% de los casos); y `canceled` / `unavailable` no tienen fecha de cancelación, así que mantienen su estado final.
 
 ## 3. Cómo funciona
 

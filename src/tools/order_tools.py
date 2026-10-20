@@ -1,7 +1,18 @@
+from datetime import datetime
+
 from src.database.connection import get_connection
 
 
-def get_order(order_id: str) -> dict | None:
+def _known_at(value: datetime | None, as_of: datetime | None) -> datetime | None:
+    # Una fecha posterior a as_of todavía no había pasado: no se muestra.
+    if as_of is None or value is None or value < as_of:
+        return value
+    return None
+
+
+def get_order(order_id: str, as_of: datetime | None = None) -> dict | None:
+    # Con as_of, el pedido se devuelve como estaba en ese momento, no en su estado final.
+    # Si no, el agente vería que llegó días después de que el cliente escribió "não recebi".
     query = """
         SELECT
             order_id,
@@ -22,14 +33,29 @@ def get_order(order_id: str) -> dict | None:
     if row is None:
         return None
 
+    status = row[1]
+    carrier_date = _known_at(row[3], as_of)
+    delivered_date = _known_at(row[5], as_of)
+
+    # El estado se reconstruye con las fechas conocidas a as_of.
+    # canceled / unavailable no tienen fecha de cancelación: quedan con su estado final.
+    if as_of is not None and status not in ("canceled", "unavailable"):
+        if delivered_date is not None:
+            status = "delivered"
+        elif carrier_date is not None:
+            status = "shipped"
+        else:
+            status = "processing"
+
     return {
         "order_id": row[0],
-        "order_status": row[1],
+        "order_status": status,
         "purchase_date": row[2],
         # Cuándo el vendedor se lo entregó al transportista. None si nunca se despachó.
-        "carrier_date": row[3],
+        "carrier_date": carrier_date,
+        # La fecha estimada se conoce desde la compra: no se oculta.
         "estimated_delivery_date": row[4],
-        "delivered_date": row[5],
+        "delivered_date": delivered_date,
     }
 
 

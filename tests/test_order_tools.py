@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime
 
 from src.tools.order_tools import get_order, get_order_items, get_order_payments
 
@@ -68,6 +69,33 @@ class TestOrderTools(unittest.TestCase):
         payments = get_order_payments("pedido_inexistente")
 
         self.assertEqual(payments, {"total": 0, "payments": []})
+
+    def test_get_order_as_of_hides_future_delivery(self):
+        # Despachado el 02/03, llegó el 02/04: el 21/03 todavía estaba en camino
+        order = get_order("543ab3128139efe78bf5e8006ae25087", as_of=datetime(2018, 3, 21))
+
+        self.assertEqual(order["order_status"], "shipped")
+        self.assertIsNone(order["delivered_date"])
+        self.assertIsNotNone(order["carrier_date"])
+        self.assertEqual(order["estimated_delivery_date"], datetime(2018, 3, 19))
+
+    def test_get_order_as_of_before_shipping(self):
+        order = get_order("543ab3128139efe78bf5e8006ae25087", as_of=datetime(2018, 3, 1))
+
+        self.assertEqual(order["order_status"], "processing")
+        self.assertIsNone(order["carrier_date"])
+
+    def test_get_order_as_of_after_delivery(self):
+        order = get_order("543ab3128139efe78bf5e8006ae25087", as_of=datetime(2018, 4, 10))
+
+        self.assertEqual(order["order_status"], "delivered")
+        self.assertIsNotNone(order["delivered_date"])
+
+    def test_get_order_as_of_keeps_canceled(self):
+        # No hay fecha de cancelación: el estado final se mantiene
+        order = get_order("808c7c69c2778bdf4689eee0286e2bef", as_of=datetime(2016, 1, 1))
+
+        self.assertEqual(order["order_status"], "canceled")
 
 if __name__ == "__main__":
     unittest.main()
