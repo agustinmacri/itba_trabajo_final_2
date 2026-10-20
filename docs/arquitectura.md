@@ -127,6 +127,6 @@ print(to_json(get_case_context("00397dc753e8c52a2dd4d73a20b88ae7")))
 |---|---|
 | Tabla de política (cuándo reembolsar, reenviar, marcar) | Por definir en grupo. Ojo: con 10 datos la tasa del vendedor todavía varía ±11 puntos por azar, así que `flag_seller` debería pedir una muestra mayor (20-30) que la que se usa para mostrar la tasa |
 | Baseline: LLM extrae el reclamo + `if` | Por definir |
-| Agente: prompt + las 5 acciones | `src/tools/` |
+| Agente: prompt + las 6 acciones (incluida `close_without_action`) | `src/tools/`. Ojo: el `CHECK` de `app.actions.action_type` en `db/init/03_app.sql` todavía no tiene `close`; agregarlo en ese PR |
 | Cola de casos, aprobación humana, interfaz | Tablas `app.*` (ya creadas) + Streamlit |
 | Evaluación agente vs. baseline | Issue #8 para los casos |

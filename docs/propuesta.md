@@ -143,9 +143,22 @@ Las acciones son **herramientas reales** (function calling), no un JSON que el L
 | `reship_items` | producto roto o ítems faltantes | **Sí**: plata y logística |
 | `flag_seller` | el historial muestra un patrón | **Sí**: afecta la relación con el vendedor |
 | `escalate_to_human` | caso ambiguo, contradictorio o con amenaza legal ("vou processar!") | Le pasa el caso completo a una persona |
-| (no actuar) | texto positivo a pesar del puntaje bajo, o ya resuelto | No: decidir no actuar también es una decisión |
+| `close_without_action` | texto positivo a pesar del puntaje bajo, o ya resuelto | No. Recibe el motivo (`reason`) |
+
+**Por qué "no actuar" también es una herramienta:** si el agente decide que no hay nada que hacer y simplemente termina sin llamar a nada, no queda registro de *por qué*, y no se distingue una decisión deliberada de una ejecución que se cortó a la mitad. Con `close_without_action(reason)` esa decisión queda en `app.actions` con su motivo, y se puede evaluar igual que las demás (en el etiquetado, "no actuar" es una respuesta correcta posible).
+
+**El agente puede llamar a varias en el mismo caso** (por ejemplo, `issue_refund` + `flag_seller` + `draft_customer_reply`), y cada una se aprueba o rechaza por separado. **Ninguna ejecuta nada:** todas *proponen*, escribiendo una fila en `app.actions`. Lo que tiene costo queda en `pending_approval` hasta que una persona lo aprueba.
 
 **La validación vive adentro de cada herramienta.** Si una llamada viola la política, la herramienta no la registra y le devuelve un error al LLM (por ejemplo, *"reembolso total no permitido: el pedido llegó parcialmente"*). El agente tiene que corregir la propuesta o escalar. Eso es ida y vuelta real con las herramientas, y cubre los requisitos de "validación" y "manejo de errores" de la consigna.
+
+**¿Por qué 6 herramientas y no una genérica?** La alternativa sería una sola `propose_action(tipo, parámetros)`. Es menos código, pero se pierde lo que hace valiosas a las herramientas:
+
+- **Cada una tiene su propio esquema**, que el LLM lee al elegir: sabe exactamente qué pasarle a `issue_refund` (tipo, ítems) y qué a `flag_seller` (vendedor, motivo). Con una genérica, los parámetros serían un diccionario libre y el LLM tendría que adivinar qué campos van con cada tipo.
+- **Cada una tiene su propia validación y sus propios errores**, que explican el límite de *esa* acción ("`flag_seller` requiere al menos 20 reseñas"). Con una genérica, todo eso termina en un `if` grande adentro.
+- **Elegir la herramienta es la decisión agéntica.** Con una sola herramienta, la decisión se esconde en un parámetro de texto; con varias, queda explícita en qué herramienta se llamó, y se mide directo en la evaluación ("¿eligió la herramienta correcta?").
+- **Trazabilidad:** cada llamada queda en `app.tool_calls` con su nombre, así que "cuántas veces propuso un reembolso" es un `GROUP BY tool_name`.
+
+Seis herramientas está muy por debajo del punto en que un LLM empieza a confundirlas, y cubre de sobra el requisito de "2 o más herramientas" con herramientas que hacen cosas distintas, no repartidas artificialmente.
 
 **Opcional, una herramienta de lectura abierta:** `search_seller_reviews(seller_id, consulta)` ("¿alguien más se queja de lo mismo que este cliente?"). No se puede pre-cargar porque la consulta depende de lo que escribió el cliente. Entra solo si sobra tiempo; no es el argumento del proyecto.
 
@@ -211,7 +224,7 @@ CREATE TABLE app.cases (
 CREATE TABLE app.actions (
     action_id      SERIAL PRIMARY KEY,
     case_id        INT REFERENCES app.cases,
-    action_type    TEXT NOT NULL,             -- refund / reship / flag_seller / reply / escalate
+    action_type    TEXT NOT NULL,             -- refund / reship / flag_seller / reply / escalate / close
     params         JSONB,                     -- lo que propuso el agente: {"amount": 120.5, "type": "partial"}
     reasoning      TEXT,                      -- por qué lo propuso (se le muestra a quien aprueba)
     status         TEXT NOT NULL,             -- proposed / pending_approval / approved / rejected / executed
@@ -251,7 +264,7 @@ CREATE TABLE app.tool_calls (
 **Entra en v1:**
 
 - Carga del dataset a Postgres (hecho: `docker compose up` con el dataset cargado).
-- El paquete de contexto pre-cargado (3 consultas SQL) + las 5 herramientas de acción con validación adentro.
+- El paquete de contexto pre-cargado (3 consultas SQL) + las 6 herramientas de acción con validación adentro.
 - La tabla `actions` con estados (`proposed`, `pending_approval`, `approved`, `rejected`, `executed`).
 - Una interfaz simple (Streamlit): el caso a la izquierda, la propuesta y los botones de aprobar / modificar / rechazar a la derecha.
 - El baseline (LLM extrae el reclamo + `if` sobre la tabla de política), que comparte casi todas las piezas con el agente.
@@ -375,7 +388,7 @@ La comparación necesita muy poco del proyecto, así que **va primero**, con un 
 | El paquete de contexto (las 3 consultas SQL) | HITL / flujo de aprobación |
 | La tabla de política | Cola `cases` + "simular día siguiente" |
 | Baseline: LLM extrae + `if` | Docker, README, `.env.example` |
-| Agente: prompt + 5 herramientas que **solo escriben una fila** | Persistencia real de las aprobaciones |
+| Agente: prompt + 6 herramientas que **solo escriben una fila** | Persistencia real de las aprobaciones |
 | ~30 casos dev etiquetados | Los 50 casos de test |
 
 Casi nada se tira: el cargador de contexto, el esquema de extracción, la tabla de política y el validador son comunes a los dos. El `if` del baseline pasa a ser el camino rápido del híbrido si así sale.
@@ -422,7 +435,7 @@ Casi nada se tira: el cargador de contexto, el esquema de extracción, la tabla 
 
 | Componente | Cómo lo cubrimos |
 |---|---|
-| Decisión agéntica, 2+ herramientas, validación, manejo de errores | El agente interpreta la reseña contra el contexto y llama a 5 herramientas de acción (function calling); cada herramienta valida contra la tabla de política y devuelve un error que el agente tiene que resolver |
+| Decisión agéntica, 2+ herramientas, validación, manejo de errores | El agente interpreta la reseña contra el contexto y llama a 6 herramientas de acción (function calling); cada herramienta valida contra la tabla de política y devuelve un error que el agente tiene que resolver |
 | Skill reutilizable | Por ejemplo, "verificar un reclamo de cliente" |
 | Estado + persistencia | Tabla `actions` en Postgres |
 | HITL | `pending_approval` → aprobar / modificar / rechazar en la UI |
@@ -436,7 +449,7 @@ Casi nada se tira: el cargador de contexto, el esquema de extracción, la tabla 
 | Frente | Qué incluye |
 |---|---|
 | Datos + Docker | Carga a Postgres (hecha), consultas del paquete de contexto, `docker-compose` de la app completa |
-| Agente | El paquete de contexto, la tabla de política, las 5 herramientas, el prompt, el loop del agente |
+| Agente | El paquete de contexto, la tabla de política, las 6 herramientas, el prompt, el loop del agente |
 | HITL + interfaz | Tabla `actions`, flujo de aprobación, Streamlit |
 | Evaluación + baseline + documentación | El baseline (extraer + `if`; su trabajo es hacerlo ganar), coordinar el etiquetado de los ~80 casos (todos etiquetan, de a pares), script de comparación, métricas, tests, README, presentación |
 
