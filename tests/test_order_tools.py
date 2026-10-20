@@ -91,9 +91,14 @@ class TestOrderTools(unittest.TestCase):
         self.assertEqual(order["order_status"], "delivered")
         self.assertIsNotNone(order["delivered_date"])
 
+    def test_get_order_as_of_before_purchase_does_not_exist(self):
+        order = get_order("543ab3128139efe78bf5e8006ae25087", as_of=datetime(2018, 1, 1))
+
+        self.assertIsNone(order)
+
     def test_get_order_as_of_keeps_canceled(self):
         # No hay fecha de cancelación: el estado final se mantiene
-        order = get_order("808c7c69c2778bdf4689eee0286e2bef", as_of=datetime(2016, 1, 1))
+        order = get_order("808c7c69c2778bdf4689eee0286e2bef", as_of=datetime(2018, 12, 31))
 
         self.assertEqual(order["order_status"], "canceled")
 

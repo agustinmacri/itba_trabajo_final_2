@@ -33,6 +33,11 @@ def get_order(order_id: str, as_of: datetime | None = None) -> dict | None:
     if row is None:
         return None
 
+    # Un pedido comprado después de as_of todavía no existía. Pasa en 65 reseñas que el
+    # dataset vincula a una compra posterior del mismo cliente.
+    if as_of is not None and row[2] >= as_of:
+        return None
+
     status = row[1]
     carrier_date = _known_at(row[3], as_of)
     delivered_date = _known_at(row[5], as_of)

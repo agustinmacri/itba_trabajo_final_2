@@ -35,6 +35,9 @@ def get_case_context(review_id: str) -> dict | None:
     ]
 
     return {
+        # True si la reseña no tiene ningún pedido anterior a su fecha: el dataset la vinculó
+        # a una compra posterior y no sabemos de qué pedido habla.
+        "orders_missing": len(orders) == 0,
         # El "hoy" del caso: el LLM lo necesita para saber, por ejemplo, si un pedido está vencido.
         "as_of": as_of,
         "review": review,

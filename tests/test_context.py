@@ -53,12 +53,29 @@ class TestCaseContext(unittest.TestCase):
         self.assertGreater(len(context["sellers"]), 0)
 
     def test_order_without_items_has_no_sellers(self):
-        # Pedido cancelado sin ítems: el caso existe pero sin vendedores
-        context = get_case_context("012befdc1333e5840c0c6e34fa6e95ba")
+        # El perfume: pedido unavailable sin ítems, sin vendedores
+        context = get_case_context("44c6d194170df31929a4ab4b7ae8512a")
 
         self.assertEqual(context["orders"][0]["items"], [])
         self.assertTrue(context["orders"][0]["items_missing"])
         self.assertEqual(context["sellers"], [])
+
+    def test_review_linked_only_to_a_later_order(self):
+        # "Recebi um produto diferente": el único pedido vinculado se compró después
+        # de la reseña. No existía todavía: el caso queda sin pedidos y marcado.
+        context = get_case_context("012befdc1333e5840c0c6e34fa6e95ba")
+
+        self.assertEqual(context["orders"], [])
+        self.assertTrue(context["orders_missing"])
+        self.assertEqual(context["sellers"], [])
+
+    def test_review_with_an_extra_later_order(self):
+        # Reseña sobre un pedido de agosto, vinculada también a uno de septiembre
+        context = get_case_context("56647f8fbe7430f42719c0510d99e636")
+
+        self.assertEqual(len(context["orders"]), 1)
+        self.assertEqual(context["orders"][0]["order_id"], "9e119efc7690fb6c238eca967793fd34")
+        self.assertFalse(context["orders_missing"])
 
     def test_unavailable_order_without_items_still_has_payment(self):
         # "Comprei um perfume Bleu de Chanel, paguei e não recebi": no hay ítems,
