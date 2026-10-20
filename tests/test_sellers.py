@@ -12,7 +12,7 @@ class TestSellers(unittest.TestCase):
     def test_get_seller_history_only_uses_the_past(self):
         history = get_seller_history(SELLER_ID, as_of=AS_OF)
 
-        bad_reviews = round(history["bad_review_rate"] * history["reviews"])
+        bad_reviews = round(history["seller_bad_review_rate"] * history["reviews"])
         self.assertEqual(bad_reviews, 4)
 
     def test_recent_bad_reviews_are_before_as_of(self):
@@ -39,8 +39,8 @@ class TestSellers(unittest.TestCase):
         history = get_seller_history(SELLER_ID, as_of=datetime(2016, 1, 1))
 
         self.assertEqual(history["orders"], 0)
-        self.assertIsNone(history["late_rate"])
-        self.assertIsNone(history["bad_review_rate"])
+        self.assertIsNone(history["seller_late_rate"])
+        self.assertIsNone(history["seller_bad_review_rate"])
         self.assertEqual(history["recent_bad_reviews"], [])
 
     def test_seller_not_found(self):

@@ -41,24 +41,24 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
         delivery_stats AS (
             SELECT
                 COUNT(*) FILTER (WHERE is_seller) AS delivered_orders,
-                CAST(ROUND(AVG(CAST(is_late AS INT)) FILTER (WHERE is_seller), 3) AS FLOAT) AS late_rate,
+                CAST(ROUND(AVG(CAST(is_late AS INT)) FILTER (WHERE is_seller), 3) AS FLOAT) AS seller_late_rate,
                 CAST(ROUND(AVG(CAST(is_late AS INT)), 3) AS FLOAT) AS platform_late_rate
             FROM deliveries
         ),
         review_stats AS (
             SELECT
                 COUNT(*) FILTER (WHERE is_seller) AS reviews,
-                CAST(ROUND(AVG(CAST(is_bad AS INT)) FILTER (WHERE is_seller), 3) AS FLOAT) AS bad_review_rate,
+                CAST(ROUND(AVG(CAST(is_bad AS INT)) FILTER (WHERE is_seller), 3) AS FLOAT) AS seller_bad_review_rate,
                 CAST(ROUND(AVG(CAST(is_bad AS INT)), 3) AS FLOAT) AS platform_bad_review_rate
             FROM reviews
         )
         SELECT
             os.orders,
             ds.delivered_orders,
-            ds.late_rate,
+            ds.seller_late_rate,
             ds.platform_late_rate,
             rs.reviews,
-            rs.bad_review_rate,
+            rs.seller_bad_review_rate,
             rs.platform_bad_review_rate
         FROM order_stats os
         CROSS JOIN delivery_stats ds
@@ -103,10 +103,10 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
         "as_of": as_of,
         "orders": stats[0],
         "delivered_orders": stats[1],
-        "late_rate": stats[2],
+        "seller_late_rate": stats[2],
         "platform_late_rate": stats[3],
         "reviews": stats[4],
-        "bad_review_rate": stats[5],
+        "seller_bad_review_rate": stats[5],
         "platform_bad_review_rate": stats[6],
         "recent_bad_reviews": [
             {
