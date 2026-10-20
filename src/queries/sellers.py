@@ -17,7 +17,7 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
             -- llegar ese mismo día a la tarde cuenta como a tiempo.
             SELECT
                 o.order_id IN (SELECT order_id FROM seller_orders) AS is_seller,
-                CAST(o.order_delivered_customer_date AS date) > CAST(o.order_estimated_delivery_date AS date) AS is_late
+                CAST(o.order_delivered_customer_date AS DATE) > CAST(o.order_estimated_delivery_date AS DATE) AS is_late
             FROM olist.orders o
             WHERE o.order_delivered_customer_date < %(as_of)s
         ),
@@ -29,17 +29,17 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
             WHERE r.review_creation_date < %(as_of)s
             GROUP BY r.review_id
         )
-        -- CAST(... AS int) convierte true/false en 1/0: el promedio es la proporción.
+        -- CAST(... AS INT) convierte true/false en 1/0: el promedio es la proporción.
         SELECT
             (SELECT COUNT(*) FROM olist.orders o
              WHERE o.order_id IN (SELECT order_id FROM seller_orders)
                AND o.order_purchase_timestamp < %(as_of)s),
             (SELECT COUNT(*) FILTER (WHERE is_seller) FROM deliveries),
-            (SELECT CAST(ROUND(AVG(CAST(is_late AS int)) FILTER (WHERE is_seller), 3) AS float) FROM deliveries),
-            (SELECT CAST(ROUND(AVG(CAST(is_late AS int)), 3) AS float) FROM deliveries),
+            (SELECT CAST(ROUND(AVG(CAST(is_late AS INT)) FILTER (WHERE is_seller), 3) AS FLOAT) FROM deliveries),
+            (SELECT CAST(ROUND(AVG(CAST(is_late AS INT)), 3) AS FLOAT) FROM deliveries),
             (SELECT COUNT(*) FILTER (WHERE is_seller) FROM reviews),
-            (SELECT CAST(ROUND(AVG(CAST(is_bad AS int)) FILTER (WHERE is_seller), 3) AS float) FROM reviews),
-            (SELECT CAST(ROUND(AVG(CAST(is_bad AS int)), 3) AS float) FROM reviews)
+            (SELECT CAST(ROUND(AVG(CAST(is_bad AS INT)) FILTER (WHERE is_seller), 3) AS FLOAT) FROM reviews),
+            (SELECT CAST(ROUND(AVG(CAST(is_bad AS INT)), 3) AS FLOAT) FROM reviews)
     """
 
     # Las 5 reseñas malas con texto más recientes, para que el LLM lea si hay un patrón.
