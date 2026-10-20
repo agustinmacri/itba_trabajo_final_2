@@ -18,7 +18,9 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
             -- Los cancelados quedan afuera: no llegar porque se canceló no es un atraso.
             SELECT
                 o.order_id IN (SELECT order_id FROM seller_orders) AS is_seller,
-                o.order_delivered_customer_date < %(as_of)s AS is_delivered,
+                -- COALESCE: si nunca llegó, la fecha es NULL y la comparación da NULL, no false.
+                -- Sin esto, NOT is_delivered también da NULL y esos pedidos no se cuentan como vencidos.
+                COALESCE(o.order_delivered_customer_date < %(as_of)s, FALSE) AS is_delivered,
                 -- Si no había llegado a as_of, se usa as_of: ya está vencido aunque llegue después.
                 -- Se compara por día: la fecha estimada viene a las 00:00, así que
                 -- llegar ese mismo día a la tarde cuenta como a tiempo.

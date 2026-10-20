@@ -114,7 +114,7 @@ print(to_json(get_case_context("00397dc753e8c52a2dd4d73a20b88ae7")))
 
 | Dato | Qué pasa |
 |---|---|
-| Estado de pedidos `canceled` / `unavailable` | No hay fecha de cancelación: queda el estado final |
+| Estado de pedidos `canceled` / `unavailable` | No hay fecha de cancelación: queda el estado final. Afecta también a la tasa de atraso: un pedido vencido a `as_of` que se canceló después queda fuera del cálculo |
 | Lo que pasó el mismo día de la reseña | `review_creation_date` no tiene hora: queda oculto (3% de los casos) |
 | Pagos | `order_payments` no tiene fecha: se asume que son de la compra |
 | Ítems de pedidos `unavailable` | 775 pedidos no tienen ítems; no sabemos si se borraron o nunca se registraron |

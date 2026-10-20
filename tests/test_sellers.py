@@ -24,6 +24,14 @@ class TestSellers(unittest.TestCase):
         self.assertEqual(history["overdue_orders"], 7)
         self.assertEqual(history["seller_late_rate"], round(7 / 29, 3))
 
+    def test_never_delivered_orders_count_as_overdue(self):
+        # Este vendedor tiene 46 pedidos vencidos que nunca llegaron (fecha de entrega NULL).
+        # El vendedor de arriba no sirve para esto: sus vencidos llegaron todos después.
+        history = get_seller_history("cc419e0650a3c5ba77189a1882b7556a", as_of=datetime(2018, 9, 1))
+
+        self.assertEqual(history["delivered_orders"], 1651)
+        self.assertEqual(history["overdue_orders"], 46)
+
     def test_recent_bad_reviews_are_before_as_of(self):
         history = get_seller_history(SELLER_ID, as_of=AS_OF)
 
