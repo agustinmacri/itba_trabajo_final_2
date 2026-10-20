@@ -77,6 +77,8 @@ olist_claims_agent/
 └── .env.example
 ```
 
+📐 Cómo se llaman las funciones entre sí y qué devuelve el paquete de contexto: [`docs/arquitectura.md`](docs/arquitectura.md)
+
 **`queries/` no son herramientas del LLM.** Las consultas de lectura las corre el código antes de llamar al LLM y se le pasan como contexto. Las herramientas (*tools*) son las acciones que el LLM elige (`issue_refund`, `flag_seller`, …) e irán en `src/tools/`. Ver `docs/propuesta.md`, sección 3.
 
 ### Tests
