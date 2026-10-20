@@ -108,7 +108,8 @@ print(to_json(get_case_context("00397dc753e8c52a2dd4d73a20b88ae7")))
 3. **JSON solo en `to_json`.** Las consultas devuelven tipos de Python (`datetime`, etc.); la conversión a JSON se hace en un único lugar, al final.
 4. **Desconocido no es lo mismo que vacío.** Si falta un dato, se marca (`items_missing`, `orders_missing`) en vez de devolver una lista vacía que el LLM leería como "no compró nada".
 5. **Las cuentas las hace SQL.** El LLM recibe tasas y conteos ya calculados, nunca filas para contar.
-6. **Estilo SQL:** palabras clave en mayúscula, `CAST(x AS DATE)` (no `::`), con el tipo en mayúscula.
+6. **Sin muestra suficiente, no hay tasa.** Las tasas del vendedor vuelven `None` si tiene menos de `MIN_SAMPLE_FOR_RATE` (10) reseñas o pedidos vencidos/entregados: con 1 de 1, el LLM leería un 100% como patrón. Los conteos quedan para que se vea por qué. Con 10, el vendedor tiene tasa en ~85% de los casos.
+7. **Estilo SQL:** palabras clave en mayúscula, `CAST(x AS DATE)` (no `::`), con el tipo en mayúscula.
 
 ## Datos que el contexto no puede reconstruir
 
@@ -124,7 +125,7 @@ print(to_json(get_case_context("00397dc753e8c52a2dd4d73a20b88ae7")))
 
 | Pieza | Dónde va a ir |
 |---|---|
-| Tabla de política (cuándo reembolsar, reenviar, marcar) | Por definir en grupo |
+| Tabla de política (cuándo reembolsar, reenviar, marcar) | Por definir en grupo. Ojo: con 10 datos la tasa del vendedor todavía varía ±11 puntos por azar, así que `flag_seller` debería pedir una muestra mayor (20-30) que la que se usa para mostrar la tasa |
 | Baseline: LLM extrae el reclamo + `if` | Por definir |
 | Agente: prompt + las 5 acciones | `src/tools/` |
 | Cola de casos, aprobación humana, interfaz | Tablas `app.*` (ya creadas) + Streamlit |

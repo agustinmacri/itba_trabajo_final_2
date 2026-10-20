@@ -60,6 +60,16 @@ class TestSellers(unittest.TestCase):
         self.assertIsNone(history["seller_bad_review_rate"])
         self.assertEqual(history["recent_bad_reviews"], [])
 
+    def test_few_data_hides_seller_rates(self):
+        # 3 reseñas y 3 entregas a esta fecha: menos que MIN_SAMPLE_FOR_RATE.
+        # Las tasas vuelven None, pero los conteos y la plataforma siguen.
+        history = get_seller_history("0015a82c2db000af6aaaf3ae2ecb0532", as_of=AS_OF)
+
+        self.assertEqual(history["reviews"], 3)
+        self.assertIsNone(history["seller_bad_review_rate"])
+        self.assertIsNone(history["seller_late_rate"])
+        self.assertIsNotNone(history["platform_bad_review_rate"])
+
     def test_seller_not_found(self):
         history = get_seller_history("vendedor_inexistente", as_of=AS_OF)
 

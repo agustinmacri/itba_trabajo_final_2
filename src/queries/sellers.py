@@ -2,6 +2,12 @@ from datetime import datetime
 
 from src.database.connection import get_connection
 
+# Mínimo de casos para mostrar una tasa del vendedor. Con menos, 1 de 1 daría 100% y el LLM
+# lo leería como un patrón: la tasa vuelve None y quedan los conteos para ver por qué.
+# Con 10, el vendedor tiene tasa en ~85% de los casos. Marcar al vendedor (flag_seller)
+# debería pedir más: con 10 la tasa todavía varía ±11 puntos por azar.
+MIN_SAMPLE_FOR_RATE = 10
+
 
 def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
     # Todo se calcula solo con datos anteriores a as_of (el "hoy" del caso).
@@ -112,18 +118,22 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
             cursor.execute(recent_query, params)
             recent = cursor.fetchall()
 
-    # Las tasas son None si el vendedor todavía no tiene datos antes de as_of.
+    delivered_orders, overdue_orders, reviews = stats[1], stats[2], stats[5]
+    seller_late_rate = stats[3] if delivered_orders + overdue_orders >= MIN_SAMPLE_FOR_RATE else None
+    seller_bad_review_rate = stats[6] if reviews >= MIN_SAMPLE_FOR_RATE else None
+
+    # Las tasas del vendedor son None si no tiene suficientes datos antes de as_of.
     return {
         "seller_id": seller_id,
         "as_of": as_of,
         "orders": stats[0],
-        "delivered_orders": stats[1],
+        "delivered_orders": delivered_orders,
         # Vencidos sin entregar a as_of: cuentan como atrasados.
-        "overdue_orders": stats[2],
-        "seller_late_rate": stats[3],
+        "overdue_orders": overdue_orders,
+        "seller_late_rate": seller_late_rate,
         "platform_late_rate": stats[4],
-        "reviews": stats[5],
-        "seller_bad_review_rate": stats[6],
+        "reviews": reviews,
+        "seller_bad_review_rate": seller_bad_review_rate,
         "platform_bad_review_rate": stats[7],
         "recent_bad_reviews": [
             {
