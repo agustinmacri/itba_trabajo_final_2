@@ -46,6 +46,7 @@ La prueba que usamos para elegir: **¿lo podría resolver un `if`?** Si la decis
 5. **Los datos terminan en 2018.** Fijamos un "hoy" simulado (por ejemplo 2018-09-01).
 6. **Las reseñas están en portugués.** El LLM las maneja bien, pero quien etiquete el set de evaluación tiene que leerlas.
 7. **Licencia:** confirmar en la página de Kaggle antes de presentar.
+8. **775 pedidos no tienen ítems, pero sí pago.** Casi todos son `unavailable` (sin stock): 603 de los 609 pedidos `unavailable` no tienen ítems, contra **0 de los 96.478 `delivered`**. Un hueco aleatorio en los datos estaría repartido entre todos los estados, así que hay una lógica atada al estado. No sabemos si los ítems se borraron al quedar sin stock o se perdieron en la exportación (es una inferencia). **Los tratamos como contenido desconocido, no como "no compró nada":** el contexto marca `items_missing` y usa el pago como monto. Sin ítems tampoco hay vendedor, así que en esos casos el agente no puede usar `flag_seller`. Son casos claros de reembolso: *"Comprei um perfume Bleu de Chanel, paguei e não recebi"* (R$ 615,53).
 
 ## 3. Cómo funciona
 

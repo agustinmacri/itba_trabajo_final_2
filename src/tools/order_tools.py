@@ -69,3 +69,36 @@ def get_order_items(order_id: str) -> list[dict]:
         items.append(item)
 
     return items
+
+
+def get_order_payments(order_id: str) -> dict:
+    # Lo que pagó el cliente. Es el único monto confiable cuando el pedido no tiene ítems.
+    query = """
+        SELECT
+            payment_type,
+            payment_installments,
+            payment_value
+        FROM olist.order_payments
+        WHERE order_id = %s
+        ORDER BY payment_sequential
+    """
+
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (order_id,))
+            rows = cursor.fetchall()
+
+    payments = []
+
+    for row in rows:
+        payment = {
+            "type": row[0],
+            "installments": row[1],
+            "value": float(row[2]),
+        }
+        payments.append(payment)
+
+    return {
+        "total": round(sum(p["value"] for p in payments), 2),
+        "payments": payments,
+    }

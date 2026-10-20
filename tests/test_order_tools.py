@@ -1,6 +1,6 @@
 import unittest
 
-from src.tools.order_tools import get_order, get_order_items
+from src.tools.order_tools import get_order, get_order_items, get_order_payments
 
 
 class TestOrderTools(unittest.TestCase):
@@ -50,6 +50,24 @@ class TestOrderTools(unittest.TestCase):
 
         self.assertGreater(len(items), 0)
         self.assertIsNone(items[0]["category"])
+
+    def test_get_order_payments(self):
+        payments = get_order_payments("548df2c6e5f089574614894bca78acf5")
+
+        self.assertEqual(payments["total"], 81.0)
+        self.assertEqual(payments["payments"][0]["type"], "credit_card")
+
+    def test_get_order_payments_total_adds_all_payments(self):
+        # 1 tarjeta + 6 vouchers
+        payments = get_order_payments("00c405bd71187154a7846862f585a9d4")
+
+        self.assertEqual(len(payments["payments"]), 7)
+        self.assertEqual(payments["total"], 46.69)
+
+    def test_get_order_payments_not_found(self):
+        payments = get_order_payments("pedido_inexistente")
+
+        self.assertEqual(payments, {"total": 0, "payments": []})
 
 if __name__ == "__main__":
     unittest.main()

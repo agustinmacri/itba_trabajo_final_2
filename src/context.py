@@ -1,4 +1,4 @@
-from src.tools.order_tools import get_order, get_order_items
+from src.tools.order_tools import get_order, get_order_items, get_order_payments
 from src.tools.review_tools import get_review
 from src.tools.seller_tools import get_seller_history
 
@@ -19,10 +19,14 @@ def get_case_context(review_id: str) -> dict | None:
             continue
 
         order["items"] = get_order_items(order_id)
+        order["payments"] = get_order_payments(order_id)
+        # 775 pedidos (casi todos "unavailable") no tienen ítems pero sí pago.
+        # Sin este flag, una lista vacía se lee como "no compró nada"; en realidad no sabemos qué compró.
+        order["items_missing"] = len(order["items"]) == 0
         seller_ids.update(item["seller_id"] for item in order["items"])
         orders.append(order)
 
-    # Pedidos cancelados antes de tener ítems no tienen vendedor: la lista queda vacía.
+    # Pedidos sin ítems no tienen vendedor: la lista queda vacía.
     sellers = [
         get_seller_history(seller_id, as_of=review["creation_date"])
         for seller_id in sorted(seller_ids)

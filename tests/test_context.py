@@ -33,11 +33,28 @@ class TestCaseContext(unittest.TestCase):
         self.assertGreater(len(context["sellers"]), 0)
 
     def test_order_without_items_has_no_sellers(self):
-        # Pedido cancelado antes de tener ítems: el caso existe pero sin vendedores
+        # Pedido cancelado sin ítems: el caso existe pero sin vendedores
         context = get_case_context("012befdc1333e5840c0c6e34fa6e95ba")
 
         self.assertEqual(context["orders"][0]["items"], [])
+        self.assertTrue(context["orders"][0]["items_missing"])
         self.assertEqual(context["sellers"], [])
+
+    def test_unavailable_order_without_items_still_has_payment(self):
+        # "Comprei um perfume Bleu de Chanel, paguei e não recebi": no hay ítems,
+        # pero el pago es el monto que el agente puede usar
+        context = get_case_context("44c6d194170df31929a4ab4b7ae8512a")
+        order = context["orders"][0]
+
+        self.assertEqual(order["order_status"], "unavailable")
+        self.assertTrue(order["items_missing"])
+        self.assertEqual(order["payments"]["total"], 615.53)
+
+    def test_order_with_items_is_not_flagged(self):
+        context = get_case_context("00397dc753e8c52a2dd4d73a20b88ae7")
+
+        self.assertFalse(context["orders"][0]["items_missing"])
+        self.assertGreater(context["orders"][0]["payments"]["total"], 0)
 
     def test_review_not_found(self):
         context = get_case_context("resena_inexistente")
