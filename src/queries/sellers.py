@@ -29,8 +29,9 @@ def get_seller_history(seller_id: str, as_of: datetime) -> dict | None:
             WHERE r.review_creation_date < %(as_of)s
             GROUP BY r.review_id
         ),
-        -- Cada *_stats es una agregación sin GROUP BY: siempre devuelve exactamente una fila,
-        -- aunque no haya datos. Por eso el CROSS JOIN de abajo no multiplica filas.
+        -- order_stats, delivery_stats y review_stats resumen todo en una sola fila cada una
+        -- (son agregaciones sin GROUP BY: devuelven una fila aunque no haya datos).
+        -- Por eso el CROSS JOIN de abajo no multiplica filas.
         -- CAST(... AS INT) convierte true/false en 1/0: el promedio es la proporción.
         order_stats AS (
             SELECT COUNT(*) AS orders
