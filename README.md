@@ -65,9 +65,44 @@ docker exec -it olist_db psql -U olist -d olist
 olist_claims_agent/
 ├── data/              # CSVs de Olist (locales, no se versionan)
 ├── db/init/           # SQL y scripts que Postgres corre al crear la base
+├── docs/              # propuesta y guías
 ├── notebooks/         # exploración y pruebas
+├── src/
+│   ├── database/      # conexión a Postgres (usuario agent)
+│   ├── queries/       # consultas de lectura: las corre el código, no el LLM
+│   ├── context.py     # arma el paquete de contexto de cada caso, a la fecha de la reseña
+│   └── serialization.py  # único punto de conversión a JSON
+├── tests/
 ├── docker-compose.yml
 └── .env.example
+```
+
+📐 Cómo se llaman las funciones entre sí y qué devuelve el paquete de contexto: [`docs/arquitectura.md`](docs/arquitectura.md)
+
+**`queries/` no son herramientas del LLM.** Las consultas de lectura las corre el código antes de llamar al LLM y se le pasan como contexto. Las herramientas (*tools*) son las acciones que el LLM elige (`issue_refund`, `flag_seller`, …) e irán en `src/tools/`. Ver `docs/propuesta.md`, sección 3.
+
+### Requisitos de Python
+
+**Python 3.10 o más nuevo** (usamos 3.12; está fijado en `.python-version`). El código usa tipos como `dict | None`, que no existen en versiones anteriores. Ojo en Mac: el `python3` que viene con el sistema suele ser 3.9 y falla al importar con `TypeError: unsupported operand type(s) for |`. Para chequear:
+
+```bash
+python3 --version
+```
+
+Si da 3.9 o menos, instalá una versión nueva (por ejemplo con `brew install python@3.12` o `pyenv install 3.12`) y creá el entorno con ella:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate      # en Windows: .venv\Scripts\activate
+```
+
+### Tests
+
+Necesitan la base levantada (`docker compose up -d`):
+
+```bash
+pip install -r requirements.txt
+python -m unittest discover -s tests -v
 ```
 
 ## Estado
