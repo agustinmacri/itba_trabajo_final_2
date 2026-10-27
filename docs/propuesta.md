@@ -34,7 +34,7 @@ La prueba que usamos para elegir: **¿lo podría resolver un `if`?** Si la decis
 - 14.396 reseñas malas (puntaje 1-2); **10.759 (75%) tienen texto**.
 - Solo el **26%** de esas reseñas corresponde a pedidos entregados tarde según las fechas, y otro **15%** a pedidos sin fecha de entrega. En el ~60% restante las fechas no muestran ningún problema: la señal está **solo en el texto**.
 - Temas en las reseñas malas (búsqueda aproximada por palabras clave): no llegó / atraso 34%, faltan ítems 8%, producto equivocado 8%, calidad 8%, roto 5%. **El 43% no coincide con ninguna palabra clave**: un set de reglas se pierde casi la mitad.
-- El texto a veces **contradice los datos**: estado `delivered` pero el cliente escribe *"o produto não chegou"*.
+- El texto a veces **contradice los datos**: estado `delivered` pero el cliente escribe *"o produto não chegou"*. **Ojo:** mirando el estado final hay 2.181 reseñas así, pero en 1.383 (63%) el pedido llegó **después** de que el cliente escribió: en ese momento decía la verdad. Las contradicciones reales (ya había llegado y el cliente dice que no) son 798. Por eso el contexto se arma como estaba el día de la reseña (limitación 9).
 - 634 vendedores tienen 30 pedidos o más, así que buscar patrones por vendedor tiene sentido.
 
 **Limitaciones a tener en cuenta:**
@@ -46,6 +46,8 @@ La prueba que usamos para elegir: **¿lo podría resolver un `if`?** Si la decis
 5. **Los datos terminan en 2018.** Fijamos un "hoy" simulado (por ejemplo 2018-09-01).
 6. **Las reseñas están en portugués.** El LLM las maneja bien, pero quien etiquete el set de evaluación tiene que leerlas.
 7. **Licencia:** confirmar en la página de Kaggle antes de presentar.
+8. **775 pedidos no tienen ítems, pero sí pago.** Casi todos son `unavailable` (sin stock): 603 de los 609 pedidos `unavailable` no tienen ítems, contra **0 de los 96.478 `delivered`**. Un hueco aleatorio en los datos estaría repartido entre todos los estados, así que hay una lógica atada al estado. No sabemos si los ítems se borraron al quedar sin stock o se perdieron en la exportación (es una inferencia). **Los tratamos como contenido desconocido, no como "no compró nada":** el contexto marca `items_missing` y usa el pago como monto. Sin ítems tampoco hay vendedor, así que en esos casos el agente no puede usar `flag_seller`. Son casos claros de reembolso: *"Comprei um perfume Bleu de Chanel, paguei e não recebi"* (R$ 615,53).
+9. **El estado de un pedido es el final, no el del día de la reseña.** En el 23% de las reseñas malas con texto, el pedido llegó **después** de que el cliente escribió. Mostrarle al agente el estado final es mostrarle el futuro: vería "entregado" y concluiría que el cliente miente. Por eso todo el contexto se arma **a la fecha de la reseña** (`as_of`): las fechas posteriores no se muestran y el estado se reconstruye con las fechas conocidas (`processing` / `shipped` / `delivered`). Además, **65 reseñas están vinculadas a pedidos que el cliente compró después de escribirlas** (en 32 es el único pedido vinculado: la reseña habla de otra compra que el dataset no vinculó). Esos pedidos todavía no existían, así que se excluyen; si la reseña queda sin pedidos, el contexto lo marca con `orders_missing`. Límites que no se pueden resolver con estos datos: `review_creation_date` no tiene hora, así que lo que pasó el mismo día de la reseña queda oculto (3% de los casos); y `canceled` / `unavailable` no tienen fecha de cancelación, así que mantienen su estado final; y `order_payments` no tiene fecha, así que se asume que los pagos son de la compra.
 
 ## 3. Cómo funciona
 
@@ -141,9 +143,22 @@ Las acciones son **herramientas reales** (function calling), no un JSON que el L
 | `reship_items` | producto roto o ítems faltantes | **Sí**: plata y logística |
 | `flag_seller` | el historial muestra un patrón | **Sí**: afecta la relación con el vendedor |
 | `escalate_to_human` | caso ambiguo, contradictorio o con amenaza legal ("vou processar!") | Le pasa el caso completo a una persona |
-| (no actuar) | texto positivo a pesar del puntaje bajo, o ya resuelto | No: decidir no actuar también es una decisión |
+| `close_without_action` | texto positivo a pesar del puntaje bajo, o ya resuelto | No. Recibe el motivo (`reason`) |
+
+**Por qué "no actuar" también es una herramienta:** si el agente decide que no hay nada que hacer y simplemente termina sin llamar a nada, no queda registro de *por qué*, y no se distingue una decisión deliberada de una ejecución que se cortó a la mitad. Con `close_without_action(reason)` esa decisión queda en `app.actions` con su motivo, y se puede evaluar igual que las demás (en el etiquetado, "no actuar" es una respuesta correcta posible).
+
+**El agente puede llamar a varias en el mismo caso** (por ejemplo, `issue_refund` + `flag_seller` + `draft_customer_reply`), y cada una se aprueba o rechaza por separado. **Ninguna ejecuta nada:** todas *proponen*, escribiendo una fila en `app.actions`. Lo que tiene costo queda en `pending_approval` hasta que una persona lo aprueba.
 
 **La validación vive adentro de cada herramienta.** Si una llamada viola la política, la herramienta no la registra y le devuelve un error al LLM (por ejemplo, *"reembolso total no permitido: el pedido llegó parcialmente"*). El agente tiene que corregir la propuesta o escalar. Eso es ida y vuelta real con las herramientas, y cubre los requisitos de "validación" y "manejo de errores" de la consigna.
+
+**¿Por qué 6 herramientas y no una genérica?** La alternativa sería una sola `propose_action(tipo, parámetros)`. Es menos código, pero se pierde lo que hace valiosas a las herramientas:
+
+- **Cada una tiene su propio esquema**, que el LLM lee al elegir: sabe exactamente qué pasarle a `issue_refund` (tipo, ítems) y qué a `flag_seller` (vendedor, motivo). Con una genérica, los parámetros serían un diccionario libre y el LLM tendría que adivinar qué campos van con cada tipo.
+- **Cada una tiene su propia validación y sus propios errores**, que explican el límite de *esa* acción ("`flag_seller` requiere al menos 20 reseñas"). Con una genérica, todo eso termina en un `if` grande adentro.
+- **Elegir la herramienta es la decisión agéntica.** Con una sola herramienta, la decisión se esconde en un parámetro de texto; con varias, queda explícita en qué herramienta se llamó, y se mide directo en la evaluación ("¿eligió la herramienta correcta?").
+- **Trazabilidad:** cada llamada queda en `app.tool_calls` con su nombre, así que "cuántas veces propuso un reembolso" es un `GROUP BY tool_name`.
+
+Seis herramientas está muy por debajo del punto en que un LLM empieza a confundirlas, y cubre de sobra el requisito de "2 o más herramientas" con herramientas que hacen cosas distintas, no repartidas artificialmente.
 
 **Opcional, una herramienta de lectura abierta:** `search_seller_reviews(seller_id, consulta)` ("¿alguien más se queja de lo mismo que este cliente?"). No se puede pre-cargar porque la consulta depende de lo que escribió el cliente. Entra solo si sobra tiempo; no es el argumento del proyecto.
 
@@ -209,7 +224,7 @@ CREATE TABLE app.cases (
 CREATE TABLE app.actions (
     action_id      SERIAL PRIMARY KEY,
     case_id        INT REFERENCES app.cases,
-    action_type    TEXT NOT NULL,             -- refund / reship / flag_seller / reply / escalate
+    action_type    TEXT NOT NULL,             -- refund / reship / flag_seller / reply / escalate / close
     params         JSONB,                     -- lo que propuso el agente: {"amount": 120.5, "type": "partial"}
     reasoning      TEXT,                      -- por qué lo propuso (se le muestra a quien aprueba)
     status         TEXT NOT NULL,             -- proposed / pending_approval / approved / rejected / executed
@@ -249,7 +264,7 @@ CREATE TABLE app.tool_calls (
 **Entra en v1:**
 
 - Carga del dataset a Postgres (hecho: `docker compose up` con el dataset cargado).
-- El paquete de contexto pre-cargado (3 consultas SQL) + las 5 herramientas de acción con validación adentro.
+- El paquete de contexto pre-cargado (3 consultas SQL) + las 6 herramientas de acción con validación adentro.
 - La tabla `actions` con estados (`proposed`, `pending_approval`, `approved`, `rejected`, `executed`).
 - Una interfaz simple (Streamlit): el caso a la izquierda, la propuesta y los botones de aprobar / modificar / rechazar a la derecha.
 - El baseline (LLM extrae el reclamo + `if` sobre la tabla de política), que comparte casi todas las piezas con el agente.
@@ -373,7 +388,7 @@ La comparación necesita muy poco del proyecto, así que **va primero**, con un 
 | El paquete de contexto (las 3 consultas SQL) | HITL / flujo de aprobación |
 | La tabla de política | Cola `cases` + "simular día siguiente" |
 | Baseline: LLM extrae + `if` | Docker, README, `.env.example` |
-| Agente: prompt + 5 herramientas que **solo escriben una fila** | Persistencia real de las aprobaciones |
+| Agente: prompt + 6 herramientas que **solo escriben una fila** | Persistencia real de las aprobaciones |
 | ~30 casos dev etiquetados | Los 50 casos de test |
 
 Casi nada se tira: el cargador de contexto, el esquema de extracción, la tabla de política y el validador son comunes a los dos. El `if` del baseline pasa a ser el camino rápido del híbrido si así sale.
@@ -420,7 +435,7 @@ Casi nada se tira: el cargador de contexto, el esquema de extracción, la tabla 
 
 | Componente | Cómo lo cubrimos |
 |---|---|
-| Decisión agéntica, 2+ herramientas, validación, manejo de errores | El agente interpreta la reseña contra el contexto y llama a 5 herramientas de acción (function calling); cada herramienta valida contra la tabla de política y devuelve un error que el agente tiene que resolver |
+| Decisión agéntica, 2+ herramientas, validación, manejo de errores | El agente interpreta la reseña contra el contexto y llama a 6 herramientas de acción (function calling); cada herramienta valida contra la tabla de política y devuelve un error que el agente tiene que resolver |
 | Skill reutilizable | Por ejemplo, "verificar un reclamo de cliente" |
 | Estado + persistencia | Tabla `actions` en Postgres |
 | HITL | `pending_approval` → aprobar / modificar / rechazar en la UI |
@@ -434,7 +449,7 @@ Casi nada se tira: el cargador de contexto, el esquema de extracción, la tabla 
 | Frente | Qué incluye |
 |---|---|
 | Datos + Docker | Carga a Postgres (hecha), consultas del paquete de contexto, `docker-compose` de la app completa |
-| Agente | El paquete de contexto, la tabla de política, las 5 herramientas, el prompt, el loop del agente |
+| Agente | El paquete de contexto, la tabla de política, las 6 herramientas, el prompt, el loop del agente |
 | HITL + interfaz | Tabla `actions`, flujo de aprobación, Streamlit |
 | Evaluación + baseline + documentación | El baseline (extraer + `if`; su trabajo es hacerlo ganar), coordinar el etiquetado de los ~80 casos (todos etiquetan, de a pares), script de comparación, métricas, tests, README, presentación |
 
@@ -447,4 +462,10 @@ Casi nada se tira: el cargador de contexto, el esquema de extracción, la tabla 
 - [ ] Confirmar la licencia del dataset en Kaggle.
 - [ ] Acordar los pesos del error ponderado **antes** de ver resultados.
 - [ ] ¿Quién lee mejor portugués? Esa persona revisa los desacuerdos de etiquetado.
+- [ ] **¿Cuántos datos hacen falta para marcar a un vendedor (`flag_seller`)?** El contexto muestra las tasas del vendedor desde 10 reseñas o pedidos (así llegan al ~85% de los casos), pero con 10 la tasa todavía varía ±11 puntos por azar. Opciones:
+  - **Umbrales distintos (recomendado):** 10 para mostrar la tasa, 20-30 para marcar. Si el LLM intenta marcar con menos, el validador lo rechaza con un error que explica el límite y sugiere mencionar el patrón en el razonamiento o escalar.
+  - **El mismo umbral para los dos:** más simple y consistente, pero se marcarían vendedores con datos ruidosos.
+  - **Una acción intermedia**, como "vigilar al vendedor": no penaliza, solo deja registro. Suma una sexta acción.
+
+  La historia del vendedor no sirve solo para marcarlo: también ayuda a juzgar si el reclamo es creíble y a elegir entre actuar o escalar.
 - [ ] Confirmar la fecha de entrega (¿5/12?).
