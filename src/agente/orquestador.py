@@ -6,7 +6,8 @@ from src.agente.nodos import (
     cargar_contexto,
     analizar_reclamo,
     validar_propuesta,
-    decidir_siguiente_paso
+    decidir_siguiente_paso,
+    decidir_segun_contexto
 )
 
 
@@ -14,6 +15,7 @@ from src.agente.nodos import (
 def detener_por_validacion(estado: EstadoAgente) -> dict:
     print("La propuesta fue rechazada por la validación.")
     return {}
+
 
 
 def crear_orquestador(funcion_analisis=analizar_reclamo):
@@ -31,7 +33,18 @@ def crear_orquestador(funcion_analisis=analizar_reclamo):
 
     # Definimos las transiciones.
     nuevo_grafo.add_edge(START, "cargar_contexto")
-    nuevo_grafo.add_edge("cargar_contexto", "analizar_reclamo")
+
+    # Si la reseña existe, continuamos con el análisis.
+    # Si no existe, finalizamos el workflow.
+    nuevo_grafo.add_conditional_edges(
+        "cargar_contexto",
+        decidir_segun_contexto,
+        {
+            "contexto_disponible": "analizar_reclamo",
+            "resena_inexistente": END
+        }
+    )
+
     nuevo_grafo.add_edge("analizar_reclamo", "validar_propuesta")
 
     nuevo_grafo.add_conditional_edges(
@@ -46,6 +59,7 @@ def crear_orquestador(funcion_analisis=analizar_reclamo):
     nuevo_grafo.add_edge("detener_por_validacion", END)
 
     return nuevo_grafo.compile()
+
 
 
 # Creamos la instancia principal del orquestador.

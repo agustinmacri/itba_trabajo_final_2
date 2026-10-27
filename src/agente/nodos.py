@@ -1,18 +1,12 @@
 
 from src.agente.estado import EstadoAgente
-
+from src.context import get_case_context
 
 
 def cargar_contexto(estado: EstadoAgente) -> dict:
     id_resena = estado["id_resena"]
 
-    # Simulamos los datos recuperados de PostgreSQL.
-    contexto = {
-        "id_resena": id_resena,
-        "calificacion": 1,
-        "comentario": "El producto llegó roto",
-        "estado_pedido": "delivered"
-    }
+    contexto = get_case_context(id_resena)
 
     return {"contexto_caso": contexto}
 
@@ -20,11 +14,13 @@ def cargar_contexto(estado: EstadoAgente) -> dict:
 def analizar_reclamo(estado: EstadoAgente) -> dict:
     contexto = estado["contexto_caso"]
 
-    # Verificamos que exista información del reclamo.
+    # Verificamos que la reseña exista.
     if contexto is None:
-        raise ValueError("No se encontró el contexto del reclamo")
+        raise ValueError("No se encontró la reseña en PostgreSQL")
 
-    calificacion = contexto["calificacion"]
+    # El contexto real contiene los datos dentro de "review".
+    resena = contexto["review"]
+    calificacion = resena["score"]
 
     # Simulamos la decisión que posteriormente tomará el LLM.
     if calificacion <= 2:
@@ -62,3 +58,12 @@ def decidir_siguiente_paso(estado: EstadoAgente) -> str:
         return "propuesta_valida"
     else:
         return "propuesta_invalida"
+
+
+def decidir_segun_contexto(estado: EstadoAgente) -> str:
+    # Si la reseña no existe, no podemos analizarla.
+    if estado["contexto_caso"] is None:
+        return "resena_inexistente"
+
+    # Si existe, continuamos con el análisis.
+    return "contexto_disponible"
